@@ -11,10 +11,11 @@ enum IslandPermissionProbe: Sendable {
         let target: String
         let file: String
         let alternativeFlags: Bool
+        var groupIndex: Int? = nil
     }
     struct Observation: Codable, Sendable {
         let route: Route?
-        let tokenResult: Int64?
+        let queryResult: Int64?
         let readable: Bool
         let detail: String
     }
@@ -27,33 +28,44 @@ enum IslandPermissionProbe: Sendable {
         }
     }
 
-    static func run(read: (String) throws -> Void,
+    static func routesForGroups(_ count: Int) throws -> [Route] {
+        guard (0...8).contains(count) else { throw IslandError.invalid("可访问 App Group 超过诊断上限 8，未开始查询。") }
+        return (0..<count).flatMap { index in
+            routes.map { route in
+                var copy = route
+                copy.groupIndex = index + 1
+                return copy
+            }
+        }
+    }
+
+    static func run(routes candidates: [Route] = routes, read: (String) throws -> Void,
                     acquire: (Route) throws -> Int64,
                     release: (Int64) -> Void) -> [Observation] {
         var results: [Observation] = []
         do {
             try read(directories[0] + "/" + filename)
-            return [Observation(route: nil, tokenResult: nil, readable: true, detail: "直接只读打开和 plist 校验成功；没有申请 token。")]
+            return [Observation(route: nil, queryResult: nil, readable: true, detail: "直接只读打开和 plist 校验成功；没有申请 token。")]
         } catch {
-            results.append(Observation(route: nil, tokenResult: nil, readable: false, detail: error.localizedDescription))
+            results.append(Observation(route: nil, queryResult: nil, readable: false, detail: error.localizedDescription))
         }
-        for route in routes {
+        for route in candidates {
             do {
                 let handle = try acquire(route)
                 guard handle >= 0 else {
-                    results.append(Observation(route: route, tokenResult: handle, readable: false, detail: "未取得可用 token；不代表文件不存在。"))
+                    results.append(Observation(route: route, queryResult: handle, readable: false, detail: handle == -255 ? "lstat 预检查失败；本次未执行 token 查询，不能据此判断文件不存在。" : "未取得可用 token；不代表文件不存在。"))
                     continue
                 }
                 defer { release(handle) }
                 do {
                     try read(route.file)
-                    results.append(Observation(route: route, tokenResult: 0, readable: true, detail: "token 消费成功且只读打开、plist 校验成功。未测试写入，未改变配置。"))
+                    results.append(Observation(route: route, queryResult: 0, readable: true, detail: "token 消费成功且只读打开、plist 校验成功。未测试写入，未改变配置。"))
                     break
                 } catch {
-                    results.append(Observation(route: route, tokenResult: 0, readable: false, detail: "token 消费成功，但读取未成功：\(error.localizedDescription)"))
+                    results.append(Observation(route: route, queryResult: 0, readable: false, detail: "token 消费成功，但读取未成功：\(error.localizedDescription)"))
                 }
             } catch {
-                results.append(Observation(route: route, tokenResult: nil, readable: false, detail: error.localizedDescription))
+                results.append(Observation(route: route, queryResult: nil, readable: false, detail: error.localizedDescription))
                 // Cache-preservation or local preflight failed; do not keep mutating the cache swap point.
                 break
             }

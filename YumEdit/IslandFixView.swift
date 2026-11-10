@@ -58,10 +58,10 @@ struct IslandFixView: View {
                         Button("知道了", role: .cancel) {}
                     } message: { Text(readResult) }
                     Button("单独读取并备份分辨率配置") { readDevice(1) }
-                    Button("运行有限权限诊断（不写系统配置）") { diagnosePermissions() }
+                    Button("逐组权限诊断（不写系统配置）") { diagnosePermissions() }
                     if let url = permissionReportURL { ShareLink("导出权限诊断报告 JSON", item: url) }
                     if let url = diagnosticBackupURL { ShareLink("导出诊断中读到的分辨率原文件", item: url) }
-                    Text("诊断最多尝试八组已有查询标志、路径别名和请求范围组合；取得 token 后还需真实读取成功才算可读。不会创建分辨率文件，也不会因诊断成功自动开放写入。")
+                    Text("诊断遍历可访问的 App Group（最多 8 个），每组最多 8 种已有标志和路径组合；真实读取成功才算可读。报告区分预检查失败和 token 查询失败。不创建分辨率文件，不自动开放写入。")
                         .font(.footnote).foregroundStyle(.secondary)
                     ForEach(0..<2, id: \.self) { index in
                         Text(fileStatuses[index]).font(.footnote).textSelection(.enabled)

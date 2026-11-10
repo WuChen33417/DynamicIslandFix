@@ -81,3 +81,11 @@ build 10 将文件访问按索引拆分：每次仅请求对应目录、读取�
 新增有限路径/请求范围/两组上游标志的诊断、真实只读打开与 plist 验证、token 释放以及诊断用 App Group Caches 保留。没有扩大写入权限或宣称取得受限目录访问；真实设备结果待用户运行后确认。研究依据见 PERMISSION-RESEARCH.md。
 
 本地 Swift 6.0.3 的 16 项测试全部通过；GitHub Actions 的核心测试及 Xcode 26.3 编译均成功。构建源码 91e504c；记录：https://github.com/WuChen33417/DynamicIslandFix/actions/runs/42884169866 。已下载并核验 IPA ZIP 完整性和构建号 11。SHA256：`da5bf33e0abb4ba3d3236730397028a005c8587b9392a9d8817434ba1aee9507`。
+
+## 用户报告与 build 12 的剩余组检查
+
+用户提供的 schema 1 报告显示：iPhone14,2 / 27.0.1（24A446），签名声明 5 个 App Group；直接读取 errno=1，四个目录候选返回 -6，四个精确文件候选返回 -255。后四项在 lstat 预检查时返回，并没有实际执行 token 查询；该报告不证明文件不存在。build 11 仅使用首个可访问组，其余组未测试。用户另报告当前短灵动岛加显示缩放仍然重叠；只说明该组合无效，不作为权限或布局根因证据。
+
+build 12 遍历所有可访问组（最多 8，超过则停止）；每组八种固定候选，取得真实可读结果后停止。schema 2 记录匿名组索引、签名组数、可访问组数并改用 queryResult 命名，区分 -255 预检查错误。仍不写系统配置、不改 Subtype，也不因诊断成功自动开放写入。是否有其他组可用，需要新的设备报告确认。
+
+本地 18 项测试通过；GitHub core 和 ipa 均成功。构建源码 43be735，记录：https://github.com/WuChen33417/DynamicIslandFix/actions/runs/42890415826 。已下载并核验 ZIP 与构建号 12。SHA256：`5b068fdc9c414d035b4062804b09fe1ccbcf4ce7ede531cbc0adeea065c9ec37`。真实设备逐组结果仍待确认，未声称取得受限目录权限或修复重叠。

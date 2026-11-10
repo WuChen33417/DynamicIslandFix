@@ -2,6 +2,18 @@ import XCTest
 @testable import DynamicIslandCore
 
 final class IslandPermissionProbeTests: XCTestCase {
+    func testAllAccessibleGroupsArePlannedAndBounded() throws {
+        let routes = try IslandPermissionProbe.routesForGroups(5)
+        XCTAssertEqual(routes.count, 40)
+        for index in 1...5 { XCTAssertEqual(routes.filter { $0.groupIndex == index }.count, 8) }
+        XCTAssertTrue(try IslandPermissionProbe.routesForGroups(0).isEmpty)
+        XCTAssertThrowsError(try IslandPermissionProbe.routesForGroups(9))
+    }
+    func testMissingStatPreflightIsNotReportedAsTokenQuery() {
+        let results = IslandPermissionProbe.run(read: { _ in throw IslandError.invalid("denied") }, acquire: { _ in -255 }, release: { _ in XCTFail("No token") })
+        XCTAssertEqual(results.count, 9)
+        XCTAssertTrue(results.dropFirst().allSatisfy { $0.queryResult == -255 && $0.detail.contains("未执行 token 查询") && !$0.readable })
+    }
     func testBoundedPlanUsesOnlyResolutionAliasesAndTwoKnownFlags() {
         XCTAssertEqual(IslandPermissionProbe.routes.count, 8)
         for directory in IslandPermissionProbe.directories {
