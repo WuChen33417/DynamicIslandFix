@@ -1,0 +1,26 @@
+name: Test and build research IPA
+on:
+  push:
+    branches: [main, dynamic-island-fix]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    container: swift:6.0.3
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift test
+  ipa:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - run: xcodebuild -version
+      - run: bash scripts/build-ipa.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DynamicIslandFix-unsigned
+          path: dist/DynamicIslandFix-unsigned.ipa
+          if-no-files-found: error
