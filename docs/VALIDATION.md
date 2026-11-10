@@ -75,3 +75,9 @@ SHA256：`192650c23332544c818d6d2603da6cb128c734e596d9dc44a44298a09cb50863`。�
 build 10 将文件访问按索引拆分：每次仅请求对应目录、读取一个 plist、保存原始字节并读回验证。分别显示结果与导出按钮；分辨率失败不阻止 MobileGestalt 独立备份。没有改变访问机制，没有自动创建系统文件；两个读取结果不全时禁用双文件写入。原有 JSON 双文件恢复格式不变。尚待用户验证独立读取结果。
 
 源码提交 2a2277b；构建 https://github.com/WuChen33417/DynamicIslandFix/actions/runs/42881336376 的 core 和 ipa 均成功。已下载并核验 IPA ZIP、Info.plist 和构建号 10。SHA256：`999b25238be994bf2d74209fc64eaf50d10a8ac7ecfa84875978937b9c74165f`。
+
+## 有限权限诊断版（build 11）
+
+新增有限路径/请求范围/两组上游标志的诊断、真实只读打开与 plist 验证、token 释放以及诊断用 App Group Caches 保留。没有扩大写入权限或宣称取得受限目录访问；真实设备结果待用户运行后确认。研究依据见 PERMISSION-RESEARCH.md。
+
+本地 Swift 6.0.3 的 16 项测试全部通过；GitHub Actions 的核心测试及 Xcode 26.3 编译均成功。构建源码 91e504c；记录：https://github.com/WuChen33417/DynamicIslandFix/actions/runs/42884169866 。已下载并核验 IPA ZIP 完整性和构建号 11。SHA256：`da5bf33e0abb4ba3d3236730397028a005c8587b9392a9d8817434ba1aee9507`。
