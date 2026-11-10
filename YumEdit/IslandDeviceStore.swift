@@ -2,12 +2,12 @@ import Foundation
 import Darwin
 
 /// Experimental device transport. Successful file I/O is not OS compatibility evidence.
-enum IslandDeviceStore {
+nonisolated enum IslandDeviceStore {
     static let paths = [
         "/private/var/containers/Shared/SystemGroup/systemgroup.com.apple.mobilegestaltcache/Library/Caches/com.apple.MobileGestalt.plist",
         "/var/Managed Preferences/mobile/com.apple.iokit.IOMobileGraphicsFamily.plist"
     ]
-    struct Snapshot: Codable {
+    struct Snapshot: Codable, Sendable {
         let schema: Int
         let machine: String
         let os: String
@@ -59,6 +59,15 @@ enum IslandDeviceStore {
         try data.write(to: url, options: .atomic)
         guard try Data(contentsOf: url) == data else { throw IslandError.invalid("备份读回校验失败。") }
         return url
+    }
+    private static let readQueue = DispatchQueue(label: "DynamicIslandFix.device-read")
+    static func captureAsync() async throws -> [Data] {
+        try await withCheckedThrowingContinuation { continuation in
+            readQueue.async {
+                do { continuation.resume(returning: try capture()) }
+                catch { continuation.resume(throwing: error) }
+            }
+        }
     }
     static func capture() throws -> [Data] {
         try withAccess {

@@ -3,6 +3,9 @@ import UniformTypeIdentifiers
 
 struct IslandFixView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var reading = false
+    @State private var showReadResult = false
+    @State private var readResult = ""
     @State private var width = ""
     @State private var height = ""
     @State private var subtype = ""
@@ -44,8 +47,15 @@ struct IslandFixView: View {
                     Text("仅 iPhone 13 Pro / iOS 27.0.1。必须有签名授予的 App Group，且两个系统文件均已存在。不自动创建分辨率文件。写入并非原子操作，断电或进程被杀可能留下部分修改。先用电脑完成整机备份。")
                         .font(.footnote).foregroundStyle(.red)
                     Button("读取设备并保存操作前备份") {
-                        perform { deviceFiles = try IslandDeviceStore.capture(); status = "已读回并备份两个文件；这只验证文件访问，不证明布局兼容。" }
+                        readDevice()
                     }
+                    .alert("读取结果", isPresented: $showReadResult) {
+                        Button("知道了", role: .cancel) {}
+                    } message: { Text(readResult) }
+                    if reading {
+                        ProgressView("正在请求目录访问并备份，请勿重复操作…")
+                    }
+                    Text(status).font(.footnote).textSelection(.enabled)
                     Toggle("接受实验风险（可能需恢复设备）", isOn: $experimental)
                     Button("备份并写入两个配置", role: .destructive) { confirmWrite = true }
                         .disabled(!experimental || deviceFiles.count != 2)
@@ -55,7 +65,9 @@ struct IslandFixView: View {
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("DynamicIslandFix")
+            .disabled(reading)
+            .interactiveDismissDisabled(reading)
+            .navigationTitle("DynamicIslandFix · 诊断版")
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("完成") { dismiss() } } }
         }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.data, .propertyList, .json]) { result in
@@ -97,6 +109,23 @@ struct IslandFixView: View {
                 }
             }
         } message: { Text("仅使用此设备由本工具生成、且未经编辑的 JSON 备份。当前文件会先另存备份。") }
+    }
+    private func readDevice() {
+        guard !reading else { return }
+        reading = true
+        deviceFiles = []
+        status = "正在读取设备并保存备份；未写入系统配置。"
+        Task {
+            do {
+                deviceFiles = try await IslandDeviceStore.captureAsync()
+                status = "已读回并备份两个文件；这只验证文件访问，不证明布局兼容。"
+            } catch {
+                status = "读取失败：\(error.localizedDescription)"
+            }
+            reading = false
+            readResult = status
+            showReadResult = true
+        }
     }
     private func clearRestore() {
         if let url = restoreURL { try? FileManager.default.removeItem(at: url) }
