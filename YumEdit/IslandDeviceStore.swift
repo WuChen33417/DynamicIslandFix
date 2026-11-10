@@ -32,14 +32,16 @@ nonisolated enum IslandDeviceStore {
             throw IslandError.invalid("设备写入实验仅面向 iPhone 13 Pro / iOS 27.0.1；此限制不代表已验证兼容。")
         }
     }
-    static func withAccess<T>(_ action: () throws -> T) throws -> T {
+    static func withAccess<T>(indices: [Int] = [0, 1], _ action: () throws -> T) throws -> T {
         try checkTarget()
         guard let group = (YumEditSigningGroups() ?? []).first(where: {
             FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil
         }) else { throw IslandError.invalid("签名未授予可访问的 App Group。") }
         var handles: [Int64] = []
         defer { for handle in handles.reversed() { worse_query_release(handle) } }
-        for path in paths {
+        for index in indices {
+            guard paths.indices.contains(index) else { throw IslandError.invalid("未知文件索引。") }
+            let path = paths[index]
             let parent = (path as NSString).deletingLastPathComponent
             let handle = worse_query(parent, group, false, false)
             guard handle >= 0 else { throw IslandError.invalid("目录访问失败（\(handle)）：\(parent)。未创建目录或文件。") }
@@ -61,20 +63,111 @@ nonisolated enum IslandDeviceStore {
         return url
     }
     private static let readQueue = DispatchQueue(label: "DynamicIslandFix.device-read")
-    static func captureAsync() async throws -> [Data] {
+    struct PermissionReport: Sendable {
+        let url: URL
+        let summary: String
+        let backup: URL?
+    }
+    private struct ReportFile: Codable, Sendable {
+        let schema: Int
+        let date: Date
+        let machine: String
+        let system: String
+        let entitledGroupCount: Int
+        let observations: [IslandPermissionProbe.Observation]
+    }
+    static func diagnosePermissionsAsync() async throws -> PermissionReport {
         try await withCheckedThrowingContinuation { continuation in
             readQueue.async {
-                do { continuation.resume(returning: try capture()) }
+                do { continuation.resume(returning: try diagnosePermissions()) }
                 catch { continuation.resume(throwing: error) }
             }
         }
     }
-    static func capture() throws -> [Data] {
-        try withAccess {
-            let files = try [read(0), read(1)]
-            _ = try IslandConfiguration.dictionary(files[0]); _ = try IslandConfiguration.dictionary(files[1])
-            _ = try save(Snapshot(schema: 1, machine: machine, os: os, date: Date(), original: files, proposed: files))
-            return files
+    private static func diagnosePermissions() throws -> PermissionReport {
+        try checkTarget()
+        let fm = FileManager.default
+        let groups = YumEditSigningGroups() ?? []
+        let group = groups.first { fm.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil }
+        var readableData: Data?
+        let observations = IslandPermissionProbe.run(read: { path in
+            let fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
+            guard fd >= 0 else { throw IslandError.invalid("只读 open 失败，errno=\(errno)。\(String(cString: strerror(errno)))") }
+            let file = FileHandle(fileDescriptor: fd, closeOnDealloc: false)
+            defer { close(fd) }
+            var st = stat()
+            guard fstat(fd, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG,
+                  st.st_size >= 0, st.st_size <= 16 * 1024 * 1024 else {
+                throw IslandError.invalid("目标不是 16 MiB 以内的普通文件，未读取内容。")
+            }
+            var data = Data()
+            while let chunk = try file.read(upToCount: min(65536, 16 * 1024 * 1024 + 1 - data.count)), !chunk.isEmpty {
+                data.append(chunk)
+                guard data.count <= 16 * 1024 * 1024 else { throw IslandError.invalid("文件读取期间超过大小限制。") }
+            }
+            _ = try IslandConfiguration.dictionary(data)
+            readableData = data
+        }, acquire: { route in
+            guard let group, let root = fm.containerURL(forSecurityApplicationGroupIdentifier: group) else {
+                throw IslandError.invalid("签名未提供可访问的 App Group，未执行 token 查询。")
+            }
+            let library = root.appendingPathComponent("Library", isDirectory: true)
+            try fm.createDirectory(at: library, withIntermediateDirectories: true)
+            var acquired: Int64 = -1
+            do {
+                return try IslandProbeCacheGuard.run(cache: library.appendingPathComponent("Caches"), target: route.target) {
+                    acquired = worse_query(route.target, group, route.alternativeFlags, false)
+                    return acquired
+                }
+            } catch {
+                if acquired >= 0 { worse_query_release(acquired) }
+                throw error
+            }
+        }, release: { worse_query_release($0) })
+        try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("permission-report-\(UUID().uuidString).json")
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let report = ReportFile(schema: 1, date: Date(), machine: machine, system: os,
+                                entitledGroupCount: groups.count, observations: observations)
+        let bytes = try encoder.encode(report)
+        try bytes.write(to: url, options: .atomic)
+        guard try Data(contentsOf: url) == bytes else { throw IslandError.invalid("诊断报告保存校验失败。") }
+        var backup: URL?
+        if let data = readableData {
+            let file = directory.appendingPathComponent("diagnostic-original-resolution-\(UUID().uuidString).plist")
+            try data.write(to: file, options: .atomic)
+            guard try Data(contentsOf: file) == data else { throw IslandError.invalid("诊断读取备份校验失败。") }
+            backup = file
+        }
+        let summary = readableData == nil
+            ? "已完成 \(observations.count) 项有限诊断，未证实分辨率文件可读。报告包含各路径、token 返回码与读取错误。没有写入系统配置。"
+            : "找到可读取并通过 plist 校验的路径，原文件已另存备份。只验证了读取；没有测试写入，也没有自动启用双文件修改。"
+        return PermissionReport(url: url, summary: summary, backup: backup)
+    }
+    struct FileCapture: Sendable {
+        let data: Data
+        let backup: URL
+    }
+    /// Request only the selected directory; another inaccessible file cannot block this backup.
+    static func captureFileAsync(_ index: Int) async throws -> FileCapture {
+        try await withCheckedThrowingContinuation { continuation in
+            readQueue.async {
+                do {
+                    let result = try withAccess(indices: [index]) {
+                        let data = try read(index)
+                        _ = try IslandConfiguration.dictionary(data)
+                        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                        let name = index == 0 ? "MobileGestalt" : "resolution"
+                        let url = directory.appendingPathComponent("original-\(name)-\(UUID().uuidString).plist")
+                        try data.write(to: url, options: .atomic)
+                        guard try Data(contentsOf: url) == data else {
+                            throw IslandError.invalid("单文件备份读回校验失败。")
+                        }
+                        return FileCapture(data: data, backup: url)
+                    }
+                    continuation.resume(returning: result)
+                } catch { continuation.resume(throwing: error) }
+            }
         }
     }
     static func apply(_ config: IslandConfiguration, expected: [Data]) throws -> URL {
