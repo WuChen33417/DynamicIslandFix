@@ -74,6 +74,7 @@ nonisolated enum IslandDeviceStore {
         let machine: String
         let system: String
         let entitledGroupCount: Int
+        let accessibleGroupCount: Int
         let observations: [IslandPermissionProbe.Observation]
     }
     static func diagnosePermissionsAsync() async throws -> PermissionReport {
@@ -88,9 +89,10 @@ nonisolated enum IslandDeviceStore {
         try checkTarget()
         let fm = FileManager.default
         let groups = YumEditSigningGroups() ?? []
-        let group = groups.first { fm.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil }
+        let accessibleGroups = groups.filter { fm.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil }
+        let routes = try IslandPermissionProbe.routesForGroups(accessibleGroups.count)
         var readableData: Data?
-        let observations = IslandPermissionProbe.run(read: { path in
+        let observations = IslandPermissionProbe.run(routes: routes, read: { path in
             let fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC)
             guard fd >= 0 else { throw IslandError.invalid("只读 open 失败，errno=\(errno)。\(String(cString: strerror(errno)))") }
             let file = FileHandle(fileDescriptor: fd, closeOnDealloc: false)
@@ -108,8 +110,12 @@ nonisolated enum IslandDeviceStore {
             _ = try IslandConfiguration.dictionary(data)
             readableData = data
         }, acquire: { route in
-            guard let group, let root = fm.containerURL(forSecurityApplicationGroupIdentifier: group) else {
-                throw IslandError.invalid("签名未提供可访问的 App Group，未执行 token 查询。")
+            guard let index = route.groupIndex, accessibleGroups.indices.contains(index - 1) else {
+                throw IslandError.invalid("查询组索引无效，未执行 token 查询。")
+            }
+            let group = accessibleGroups[index - 1]
+            guard let root = fm.containerURL(forSecurityApplicationGroupIdentifier: group) else {
+                throw IslandError.invalid("该 App Group 容器已不可访问，停止诊断。")
             }
             let library = root.appendingPathComponent("Library", isDirectory: true)
             try fm.createDirectory(at: library, withIntermediateDirectories: true)
@@ -127,8 +133,8 @@ nonisolated enum IslandDeviceStore {
         try fm.createDirectory(at: directory, withIntermediateDirectories: true)
         let url = directory.appendingPathComponent("permission-report-\(UUID().uuidString).json")
         let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let report = ReportFile(schema: 1, date: Date(), machine: machine, system: os,
-                                entitledGroupCount: groups.count, observations: observations)
+        let report = ReportFile(schema: 2, date: Date(), machine: machine, system: os,
+                                entitledGroupCount: groups.count, accessibleGroupCount: accessibleGroups.count, observations: observations)
         let bytes = try encoder.encode(report)
         try bytes.write(to: url, options: .atomic)
         guard try Data(contentsOf: url) == bytes else { throw IslandError.invalid("诊断报告保存校验失败。") }
@@ -140,7 +146,7 @@ nonisolated enum IslandDeviceStore {
             backup = file
         }
         let summary = readableData == nil
-            ? "已完成 \(observations.count) 项有限诊断，未证实分辨率文件可读。报告包含各路径、token 返回码与读取错误。没有写入系统配置。"
+            ? "已记录 \(observations.count) 项诊断结果；签名声明 \(groups.count) 个组，可访问 \(accessibleGroups.count) 个。仍未证实分辨率文件可读。请导出报告；未写入系统配置。"
             : "找到可读取并通过 plist 校验的路径，原文件已另存备份。只验证了读取；没有测试写入，也没有自动启用双文件修改。"
         return PermissionReport(url: url, summary: summary, backup: backup)
     }
