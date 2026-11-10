@@ -67,3 +67,11 @@ Docker 官方 Swift 镜像因 vfs 复制耗尽磁盘未能运行；本次下载�
 提交 edb5694；https://github.com/WuChen33417/DynamicIslandFix/actions/runs/42878940463 的核心测试和 IPA 构建均成功。已下载并检查 ZIP 完整性及 CFBundleVersion=9。
 
 SHA256：`192650c23332544c818d6d2603da6cb128c734e596d9dc44a44298a09cb50863`。尚未确认用户设备上的读取是否成功；后台执行不会使不兼容的目录访问自动兼容。
+
+## 用户设备反馈与独立备份（build 10）
+
+用户提供的截图及描述：iPhone 13 Pro，iOS 27.0.1（24A446），企业证书签名。build 9 在访问 `/var/Managed Preferences/mobile` 时返回 `worse_query -6`（未取得 sandbox token）。这证明该次分辨率目录访问失败，不证明文件不存在，也不证明前面的 MobileGestalt 已完成读取备份。不是本项目直接连接设备获得的测试日志。
+
+build 10 将文件访问按索引拆分：每次仅请求对应目录、读取一个 plist、保存原始字节并读回验证。分别显示结果与导出按钮；分辨率失败不阻止 MobileGestalt 独立备份。没有改变访问机制，没有自动创建系统文件；两个读取结果不全时禁用双文件写入。原有 JSON 双文件恢复格式不变。尚待用户验证独立读取结果。
+
+源码提交 2a2277b；构建 https://github.com/WuChen33417/DynamicIslandFix/actions/runs/42881336376 的 core 和 ipa 均成功。已下载并核验 IPA ZIP、Info.plist 和构建号 10。SHA256：`999b25238be994bf2d74209fc64eaf50d10a8ac7ecfa84875978937b9c74165f`。
