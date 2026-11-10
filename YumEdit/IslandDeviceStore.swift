@@ -32,14 +32,16 @@ nonisolated enum IslandDeviceStore {
             throw IslandError.invalid("设备写入实验仅面向 iPhone 13 Pro / iOS 27.0.1；此限制不代表已验证兼容。")
         }
     }
-    static func withAccess<T>(_ action: () throws -> T) throws -> T {
+    static func withAccess<T>(indices: [Int] = [0, 1], _ action: () throws -> T) throws -> T {
         try checkTarget()
         guard let group = (YumEditSigningGroups() ?? []).first(where: {
             FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil
         }) else { throw IslandError.invalid("签名未授予可访问的 App Group。") }
         var handles: [Int64] = []
         defer { for handle in handles.reversed() { worse_query_release(handle) } }
-        for path in paths {
+        for index in indices {
+            guard paths.indices.contains(index) else { throw IslandError.invalid("未知文件索引。") }
+            let path = paths[index]
             let parent = (path as NSString).deletingLastPathComponent
             let handle = worse_query(parent, group, false, false)
             guard handle >= 0 else { throw IslandError.invalid("目录访问失败（\(handle)）：\(parent)。未创建目录或文件。") }
@@ -61,20 +63,30 @@ nonisolated enum IslandDeviceStore {
         return url
     }
     private static let readQueue = DispatchQueue(label: "DynamicIslandFix.device-read")
-    static func captureAsync() async throws -> [Data] {
+    struct FileCapture: Sendable {
+        let data: Data
+        let backup: URL
+    }
+    /// Request only the selected directory; another inaccessible file cannot block this backup.
+    static func captureFileAsync(_ index: Int) async throws -> FileCapture {
         try await withCheckedThrowingContinuation { continuation in
             readQueue.async {
-                do { continuation.resume(returning: try capture()) }
-                catch { continuation.resume(throwing: error) }
+                do {
+                    let result = try withAccess(indices: [index]) {
+                        let data = try read(index)
+                        _ = try IslandConfiguration.dictionary(data)
+                        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                        let name = index == 0 ? "MobileGestalt" : "resolution"
+                        let url = directory.appendingPathComponent("original-\(name)-\(UUID().uuidString).plist")
+                        try data.write(to: url, options: .atomic)
+                        guard try Data(contentsOf: url) == data else {
+                            throw IslandError.invalid("单文件备份读回校验失败。")
+                        }
+                        return FileCapture(data: data, backup: url)
+                    }
+                    continuation.resume(returning: result)
+                } catch { continuation.resume(throwing: error) }
             }
-        }
-    }
-    static func capture() throws -> [Data] {
-        try withAccess {
-            let files = try [read(0), read(1)]
-            _ = try IslandConfiguration.dictionary(files[0]); _ = try IslandConfiguration.dictionary(files[1])
-            _ = try save(Snapshot(schema: 1, machine: machine, os: os, date: Date(), original: files, proposed: files))
-            return files
         }
     }
     static func apply(_ config: IslandConfiguration, expected: [Data]) throws -> URL {
