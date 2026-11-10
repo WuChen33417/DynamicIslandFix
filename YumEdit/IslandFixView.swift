@@ -9,6 +9,8 @@ struct IslandFixView: View {
     @State private var reading = false
     @State private var showReadResult = false
     @State private var readResult = ""
+    @State private var permissionReportURL: URL?
+    @State private var diagnosticBackupURL: URL?
     @State private var width = ""
     @State private var height = ""
     @State private var subtype = ""
@@ -56,6 +58,11 @@ struct IslandFixView: View {
                         Button("知道了", role: .cancel) {}
                     } message: { Text(readResult) }
                     Button("单独读取并备份分辨率配置") { readDevice(1) }
+                    Button("运行有限权限诊断（不写系统配置）") { diagnosePermissions() }
+                    if let url = permissionReportURL { ShareLink("导出权限诊断报告 JSON", item: url) }
+                    if let url = diagnosticBackupURL { ShareLink("导出诊断中读到的分辨率原文件", item: url) }
+                    Text("诊断最多尝试八组已有查询标志、路径别名和请求范围组合；取得 token 后还需真实读取成功才算可读。不会创建分辨率文件，也不会因诊断成功自动开放写入。")
+                        .font(.footnote).foregroundStyle(.secondary)
                     ForEach(0..<2, id: \.self) { index in
                         Text(fileStatuses[index]).font(.footnote).textSelection(.enabled)
                         if let url = deviceBackups[index] {
@@ -145,6 +152,23 @@ struct IslandFixView: View {
             if deviceReads.allSatisfy({ $0 != nil }) {
                 deviceFiles = deviceReads.compactMap { $0 }
             }
+            reading = false
+            readResult = status
+            showReadResult = true
+        }
+    }
+    private func diagnosePermissions() {
+        guard !reading else { return }
+        reading = true
+        permissionReportURL = nil; diagnosticBackupURL = nil
+        status = "正在执行有限权限诊断；不修改系统配置。"
+        Task {
+            do {
+                let report = try await IslandDeviceStore.diagnosePermissionsAsync()
+                permissionReportURL = report.url
+                diagnosticBackupURL = report.backup
+                status = report.summary
+            } catch { status = "权限诊断失败：\(error.localizedDescription)" }
             reading = false
             readResult = status
             showReadResult = true

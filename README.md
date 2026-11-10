@@ -83,3 +83,9 @@ bash scripts/build-ipa.sh
 ## 许可
 
 保留上游 GPL-3.0 LICENSE 和版权声明；新增代码以同一许可证发布。Nugget 用于公开源码研究，未复制其画布参数映射或恢复实现。Gester 资源许可见 `YumEdit/Gester-LICENSE`。
+
+## build 11：权限诊断
+
+当 MobileGestalt 备份成功但分辨率返回 -6 时，可点击“运行有限权限诊断（不写系统配置）”。它依次测试直接只读打开、两种路径别名、目录/精确文件请求与两组上游查询标志；最多八次 token 请求，实际读取成功才算可读。完成后分享 `permission-report-*.json`。报告不含原始 plist、token 字符串或证书。
+
+诊断不会自动开放写入，成功读取时仅另存原始分辨率备份。分辨率目录不在上游声明的容器访问范围，仍可能全部失败。查询过程中会临时切换并保留 App Group Caches；发生保留目录冲突时停止，不覆盖内容。研究依据、其他路径的限制与显示缩放对照候选见 [权限研究](docs/PERMISSION-RESEARCH.md)。
