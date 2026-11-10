@@ -59,3 +59,11 @@ Docker 官方 Swift 镜像因 vfs 复制耗尽磁盘未能运行；本次下载�
 - Bundle ID：`com.dynamicislandfix.research`；显示名 DynamicIslandFix；最低系统 26.0。
 - SHA256：`4ca97c3c85e19847e2beb600db944647bbc580de768a6524280d46195fc1e1c4`。
 - 这是未签名 IPA，安装前需要签名；设备实验要求 profile 授予可访问的 App Group。构建成功不代表 iOS 27.0.1 的布局兼容或遮挡问题已修复。
+
+## 读取无反馈问题的诊断版（build 9）
+
+用户报告点击读取后无反应，根因尚未由设备日志确认。已修正两处代码问题：将同步读取移至串行后台队列；在读取按钮附近显示状态、进度并在完成后弹出结果，读取期间禁止重复操作和关闭页面。核心模型使用 Sendable，构建号改为 9。
+
+提交 edb5694；https://github.com/WuChen33417/DynamicIslandFix/actions/runs/42878940463 的核心测试和 IPA 构建均成功。已下载并检查 ZIP 完整性及 CFBundleVersion=9。
+
+SHA256：`192650c23332544c818d6d2603da6cb128c734e596d9dc44a44298a09cb50863`。尚未确认用户设备上的读取是否成功；后台执行不会使不兼容的目录访问自动兼容。
