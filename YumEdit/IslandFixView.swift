@@ -68,7 +68,7 @@ struct IslandFixView: View {
             .disabled(reading)
             .interactiveDismissDisabled(reading)
             .navigationTitle("DynamicIslandFix · 诊断版")
-            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("完成") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("完成") { dismiss() }.disabled(reading) } }
         }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.data, .propertyList, .json]) { result in
             perform {

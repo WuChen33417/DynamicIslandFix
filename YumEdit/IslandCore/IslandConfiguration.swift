@@ -1,19 +1,13 @@
 import Foundation
 import CoreFoundation
 
-#if compiler(>=6.2)
-nonisolated
-#endif
-enum IslandError: LocalizedError {
+enum IslandError: LocalizedError, Sendable {
     case invalid(String)
     var errorDescription: String? { if case .invalid(let text) = self { return text }; return nil }
 }
 
 /// Bounds are serialization/overflow guards, never a claim that a value is safe on a device.
-#if compiler(>=6.2)
-nonisolated
-#endif
-struct IslandConfiguration: Codable, Equatable {
+struct IslandConfiguration: Codable, Equatable, Sendable {
     let width: Int
     let height: Int
     let subtype: Int
@@ -74,10 +68,7 @@ struct IslandConfiguration: Codable, Equatable {
 }
 
 /// Both preimages must be durably backed up before the first write. The caller serializes access.
-#if compiler(>=6.2)
-nonisolated
-#endif
-enum IslandTransaction {
+enum IslandTransaction: Sendable {
     static func perform(original: [Data], proposed: [Data], backup: ([Data]) throws -> Void,
                         read: (Int) throws -> Data, write: (Int, Data) throws -> Void) throws {
         guard original.count == 2, proposed.count == 2 else { throw IslandError.invalid("需要两个文件。") }
