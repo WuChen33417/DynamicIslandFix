@@ -2,7 +2,6 @@ name: Test and build research IPA
 on:
   push:
     branches: [main, dynamic-island-fix]
-  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,7 +13,9 @@ jobs:
       - uses: actions/checkout@v4
       - run: swift test
   ipa:
-    runs-on: macos-26
+    runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
       - run: xcodebuild -version
