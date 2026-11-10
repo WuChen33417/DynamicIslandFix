@@ -41,7 +41,8 @@ Docker 官方 Swift 镜像因 vfs 复制耗尽磁盘未能运行；本次下载�
 ## 未完成及原因
 
 - iOS App 编译、SwiftUI 类型检查、签名和新 IPA：当前为 Linux，没有 Xcode。实际调用构建脚本后按预期退出并提示需要 macOS / Xcode。已提供 macOS Actions 流程，但没有运行成功证据。
-- GitHub 远程 fork：`gh repo fork H4CNPE/YumEdit --fork-name DynamicIslandFix --clone=false` 返回 HTTP 403 `Resource not accessible by integration`。未创建远程 fork、未推送原仓库、未触发 Actions。需要用户在 GitHub 网页创建可写 fork 或授予集成相应权限。
+- GitHub 远程 fork：初次接口创建返回 HTTP 403；用户随后在网页创建了 `WuChen33417/DynamicIslandFix`（已核实 parent 为 H4CNPE/YumEdit）。源码已推送到 `dynamic-island-fix`，草稿 PR 为 https://github.com/WuChen33417/DynamicIslandFix/pull/1 。
+- GitHub Actions：核心测试已通过；macOS IPA 任务仍在等待 runner，尚无构建成功或 IPA 产物证据。运行记录：https://github.com/WuChen33417/DynamicIslandFix/actions/runs/42873932439 。
 - 实机文件访问、读取后备份、系统写入、设备恢复：没有连接真实 iPhone。
 - iOS 27.0.1 是否采用画布、双活动是否避让状态栏、自动隐藏动画：没有实机录像或配置证据，均未确认。
 
