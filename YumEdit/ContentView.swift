@@ -24,6 +24,7 @@ struct ContentView: View {
     @State private var showEditor = false
     @State private var showPresets = false
     @State private var showAbout = false
+    @State private var showIslandFix = false
     @State private var showRestoreConfirm = false
     @State private var showImportPicker = false
     @State private var restoreURL: URL?
@@ -189,6 +190,8 @@ struct ContentView: View {
                         }
                     }
                     .font(.footnote.weight(.medium)).buttonStyle(.plain).disabled(busy)
+                    Button("DynamicIslandFix · 分辨率与 Subtype") { showIslandFix = true }
+                        .buttonStyle(.bordered).disabled(busy)
                     Text("仅写入已知机型。请先完成整机备份。")
                         .font(.footnote).foregroundStyle(.white.opacity(0.5))
                     Button {
@@ -206,6 +209,7 @@ struct ContentView: View {
                 .frame(maxWidth: 600).frame(maxWidth: .infinity).padding(.bottom, 40)
             }
         }
+        .sheet(isPresented: $showIslandFix) { IslandFixView() }
         .fullScreenCover(isPresented: $showRisk) {
             ZStack {
                 Color(red: 0.34, green: 0.02, blue: 0.04).ignoresSafeArea()

@@ -1,33 +1,85 @@
-# YumEdit
+# DynamicIslandFix
 
-**实验性 App：为 CH/A 国行 iPhone 与 iPad 尝试启用 Siri AI，并提供独立的欧洲销售区域试验选项。** 修改的是系统 MobileGestalt 缓存，可能造成系统异常或需要恢复设备。使用前务必备份整机。界面参考 SideInstaller 的深色蓝色渐变与玻璃卡片；音效为独立合成。
+基于 [H4CNPE/YumEdit](https://github.com/H4CNPE/YumEdit) 的 GPL-3.0 研究分支，在 iPhone App 中统一管理分辨率与 Device Subtype，研究 iPhone 13 Pro / iOS 27.0.1 强开 Dynamic Island 后双实时活动遮挡状态栏的问题。
 
-## 行为
+**尚未修复状态栏遮挡，没有真实设备测试证据。项目名是研究目标，不是效果承诺。** 不包含 SpringBoard 布局补丁或自动隐藏动画实现。
 
-- 原生 Siri AI iPhone：按 GestaltEdit 的机型映射，只改 `CacheExtra` 的国家码、销售区域与监管型号。
-- 旧机型实验模式：iOS 27+、iPhone 11 起、非原生 AI 型号；可选择 iPhone 15 Pro 至 iPhone 17 系列的已知 Siri AI 机型。在全屏红色风险确认后，额外伪装产品、硬件与 CPU 型号，并设置 `SiriMode = 2`。**可能失去 Face ID、发生循环重启或需要恢复设备；功能未经真机验证。**
-- 写入前把原始 plist 保存到应用 Documents/GestaltBackups，读回验证备份；主文件参照 BQTool 的原位写入方式保留 inode，再读回验证完整数据及关键字段。写入或验证失败时尝试原位恢复原始数据。
-- 1.0.0 增加恢复按钮：每次写入前都会保存独立备份，普通点击恢复最近一次由 YumEdit 保存的 MobileGestalt plist，并在恢复前另存当前缓存。1.1.1 可长按该按钮，从“文件”导入**同一设备**的 plist 再恢复，即使应用已有备份也能选择。备份本身若已被修改，恢复后也仍是修改后的状态；本工具无法凭空生成出厂 plist，也不会故意破坏缓存以触发系统重建。恢复后需重启。
-- 按钮有应用内合成的轻触音效。
-- 未知型号或区域字段异常时拒绝写入。新型号需核实对应美版监管型号后才能加入映射。
-- iPad 原生模式：仅对 Apple 官方型号表与实际 `hw.machine` 双重匹配的 M1 及更新款 iPad 和 A17 Pro / A20 Pro iPad mini 改区域。中国大陆专有蜂窝型号映射到同系列非中国大陆蜂窝型号；Wi-Fi 型号保留原监管型号。未知组合拒绝写入。旧 iPad 的实验模式仅提供已核实的 11 英寸 iPad Pro M4 Wi-Fi / 蜂窝伪装预设，并设置 SiriMode=2；可能影响系统功能。
-- iPhone 13 / 14 小刘海机型增加灵动岛布局试验。使用 BQTool 已知的 `Dynamic Island` 与 `ArtworkDeviceSubType=2622` 逻辑；**这不是经核实的 iPhone 18 Pro 专用值**，不保证 18 Pro 小灵动岛外观。
-- 二级 MobileGestalt 字段编辑器可查看、暂存并直接应用 `CacheExtra` 的 String、Integer、Boolean、Data 字段；集合类型只读。写入前全屏红色警告，自动备份和读回校验。编辑页提供实验性 Respring；它参考 Gester/BQTool 的 NeoSpring WebKit 方法，可能关闭打开的 App，效果不保证。
-- 1.1.0 增加多种独立合成的点击、确认、警告、成功与失败音效。
-- 1.1.0 的字段编辑与 BQTool 风格预设分别从主页面小按钮进入，进入前均有全屏红色警告，真正写入前再次确认。预设涵盖 AOD、开机音、充电上限、台前调度、Apple Pencil、操作按钮、车祸检测、版本伪装、AI、Siri 美区、研究设备、展示模式及已知灵动岛布局。iPadOS 模式单独修改二进制 `CacheData` 并验证标记，校验失败时拒绝写入；它有额外的全屏红色警告。
-- 1.1.1 增加关闭 iPadOS 模式：只在找到与当前二进制 `CacheData` 精确对应的启用前备份时，恢复原 `CacheData` 和五个能力字段的原值；保留其他当前字段，并在写入前再次备份。若备份缺失或设备缓存已变化，则拒绝写入，需要使用同一设备的原始 plist 完整恢复。Respring 按钮可从主页面、字段编辑器、预设页进入；主屏图标快捷操作也可进入相同的风险确认页。[v1.1.1 已发布](https://github.com/H4CNPE/YumEdit/releases/tag/v1.1.1)。
-- 1.1.1 更新：使用用户提供的图标；旧机型实验开关、机型菜单及二级页面补齐操作音效；贡献者页改用 [@Murkuwuwuwu](https://x.com/Murkuwuwuwu) 新账号和头像，备注“本工具使用的漏洞贡献者”。欧洲设备开关默认关闭，仅接受已列入白名单且 `CountryCode` 与 `RegionInfo` 同时匹配的销售区域；原生与旧机型 iPhone 还须匹配 Apple 公布的对应监管型号，未知组合拒绝写入。欧盟 24 种官方语言及俄语提供系统语言界面资源；翻译为机器生成，关键风险文案尚需母语审校。
-- 1.1.1 还加入 iPhone Duo（`iPhone19,4`）美区映射：国行 `A3721`、欧洲 `A3720` 经销售区域交叉校验后才允许改为美版 `A3447`。主页不再显示顶部图标，强开按钮保持突出，恢复与 Respring、字段编辑与预设各自并排。
-- 1.2.0 本地实验新增「预设修改 → 外接屏扩展实验」：第一阶段保存实验前完整基线，只写入五个 iPad 多任务能力、台前调度和 iPad App 能力；第二阶段须单独通过全屏红色警告，才尝试改 `CacheData` 设备类别。恢复按钮只回退这七个字段及设备类别，并拒绝覆盖实验后被其他工具改过的相关值；其他当前修改保留。每次系统缓存写入仍另存完整备份并读回校验。**尚未在 iOS 27 真机证实扩展桌面可用。**
-- 设备类别改为 iPad 可能影响音频、麦克风、电话与相机视频；[misakaX 的设备实测报告](https://github.com/straight-tamago/misakaX/issues/442)记录了 iPhone 12 Pro Max 上的此类故障以及短暂启动后断开的 AirPlay 扩展桌面。Apple 的[外接屏开发文档](https://developer.apple.com/documentation/UIKit/presenting-content-on-a-connected-display)也区分了镜像、应用自己的外接屏内容和受支持 iPad 的交互窗口；本实验针对的是系统扩展桌面，不能以字段写入成功代替功能验证。
-- 底部信息按钮显示贡献者头像、X 链接、GitHub 仓库以及包内版本号和构建号。头像于 2026-11-10 通过公开 X 头像代理获取。
+## 功能与证据范围
 
-## 构建与签名
+| 功能 | 状态 |
+| --- | --- |
+| 参数格式校验、plist 结构检查、保留无关字段 | 已实现；Swift 单元测试覆盖，不代表设备参数安全 |
+| 手机导入两个 plist、保留原文件、导出修改结果 | 已实现；SwiftUI 界面尚需 Xcode 构建与手机验收 |
+| 系统访问、备份、原位写入、读回校验、失败回滚 | 实验性；未真机验证 |
+| 持久化双文件备份与带冲突检查的恢复 | 已实现；核心事务有测试，设备访问未验证 |
+| iOS 27.0.1 接受新画布尺寸 | 未确认 |
+| 双活动避让状态栏和自动隐藏动画 | 未验证，未实现专门修复 |
+| IPA | 提供实际源码构建脚本与 Actions；是否生成以构建结果为准 |
 
-打开 `YumEdit.xcodeproj`。目标默认 Team ID 为 B2F9932GMA、Bundle ID 为 `com.hyumpix.yumedit`，App Group 为 `group.com.hyumpix.yumedit`。签名 profile 必须授权至少一个 App Group；App 会读取签名中实际授予的组名。P12 证书本身不会授予 App Group，若侧载工具移除该权限，漏洞无法运行。iPhone Duo 窗口采用最大 600pt 的居中布局。
+原仓库功能保留，主页新增 **DynamicIslandFix · 分辨率与 Subtype**。旧功能见 [上游 README](docs/YumEdit-upstream.md)，不属于新增兼容性承诺。具体执行结果见 [验证记录](docs/VALIDATION.md)。
 
-本项目基于 forcequitOS/worse_query 的 GPL-3.0 漏洞 PoC，并保留其 LICENSE。界面及区域写入逻辑为新实现。监管型号表参考 frs0n/GestaltEdit；伪装硬件型号和芯片映射参考 libimobiledevice/libirecovery；SiriMode 键参考 PoomSmart/MGKeys。未在真机执行写入，也未验证 Siri AI 服务端资格。请先完成整机备份。
+## 原理与兼容性
 
-iPad 型号表以 [Apple 官方 iPad 型号列表](https://support.apple.com/en-us/108043) 与 [libirecovery 设备标识列表](https://github.com/libimobiledevice/libirecovery/blob/master/src/libirecovery.c) 交叉核对。`respring.html` 源于 [Gester/BQTool](https://github.com/sasobhabha/Gester) 的 MIT 授权实现，保留其原始文件内容；Gester 的版权与许可见该仓库 LICENSE。
+固定研究基线：YumEdit [`d57eab62`](https://github.com/H4CNPE/YumEdit/tree/d57eab62d63d60563aa207e1921531c0d8c0681a)，Nugget [`26e0c50e`](https://github.com/leminlimez/Nugget/tree/26e0c50ec114ca3a4ff6ab2fb4ae309abfd39fa1)。
 
-欧洲选项使用 [Apple 官方 iPhone 型号列表](https://support.apple.com/en-us/108044) 核对监管型号；销售后缀采用保守的[社区区域代码表](https://gist.github.com/donn/0c501ab625625c381fdf3210bf0ff275)并要求两个 MobileGestalt 字段精确成对匹配。Apple 未公开完整销售后缀表，因此某些真实欧洲设备可能被拒绝；这比猜测其区域安全。
+Nugget 使用两个独立配置：
+
+- `/var/Managed Preferences/mobile/com.apple.iokit.IOMobileGraphicsFamily.plist`：`canvas_width` 和 `canvas_height`。
+- MobileGestalt plist：`CacheExtra["oPeik/9e8lQWMszEjbPzng"]["ArtworkDeviceSubType"]`。
+
+Nugget 有按 Subtype 生成画布尺寸的 `RdarFixTweak`，但名为“Status Bar Fix”的选项不能证明本问题已解决。本项目不复制它的分辨率映射。
+
+**Nugget README 明确声明 MobileGestalt 修改不支持 iOS 26.2+，BookRestore 适用于 18.2–26.1。因此不能宣称其修改方案支持 27.0.1。** YumEdit 使用不同的 `worse_query` 目录访问机制，需要签名 profile 实际授予可访问的 App Group；源码提及 iOS 27 也不是 27.0.1 实机验证。详见 [源码分析](docs/RESEARCH.md)。
+
+新增配置模块只修改用户填写的三项值，不新增灵动岛能力标志；要求用户已经通过其他方式开启灵动岛。修改的是画布配置，不是物理屏幕像素。
+
+## 先使用离线功能
+
+1. 打开主页的 DynamicIslandFix 入口。
+2. 从“文件”导入自己设备的 MobileGestalt 与分辨率 plist。
+3. 手动填写宽、高与 Subtype，点击“校验参数”。没有自动填充的建议值。
+4. 点击“备份原文件并导出修改后的两个 plist”。到 App 的 Documents/DynamicIslandFix/export-* 查看或分享结果。
+
+导出文件夹包含 `original-MobileGestalt.plist`、`original-resolution.plist`、两个 `modified-*` 与 `configuration.json`。不会覆盖导入源；离线恢复可使用 `original-*`。这些导出文件不是系统恢复指令。
+
+原生 `1170×2532`、`2532` 短岛、`2556` 改变尺寸是本任务提供的观察，**不是本项目独立实测**。校验仅接受十进制正整数与竖屏；宽高 1…16384、Subtype 1…65535 是序列化保护边界，**不是支持参数列表**。不要把能通过格式校验的任意值写入设备。
+
+## 手机端实验
+
+先完成可用的整机备份，并把本工具备份复制到手机外。没有已验证恢复手段时只使用离线功能。
+
+1. 使用有 App Group 权限的 provisioning profile 签名安装；P12 本身不授予该权限。
+2. 点“读取设备并保存操作前备份”。仅硬件 `iPhone14,2`、系统精确为 `27.0.1` 时允许；这是范围约束，不是兼容认证。
+3. 两个目录和系统文件必须已存在，文件必须是普通文件。首版不创建受保护的分辨率文件；缺文件或访问失败即停止。
+4. 填写经自己独立核实的参数，开启实验风险开关，再确认写入。工具先持久化并读回核验包含设备、系统、原始字节与预期结果的 JSON 备份，再原位写入两个文件并逐一读回。任一失败会尝试恢复两者。
+5. 不自动重启。复制备份到手机外，手动重启并按研究记录检查；“已写入”只表示文件 I/O 成功。
+6. 恢复时选本工具生成的 `backup-*.json`。只有机型、系统匹配，且两个当前文件与备份预期修改结果完全一致时才恢复。恢复前另存当前文件，恢复后手动重启。
+
+备份是操作前状态，不保证出厂状态；此前改过，恢复也会回到改过的状态。备份没有数字签名，不要编辑或使用他人备份。内容精确匹配用于防止覆盖后续修改，不能代替来源核实。
+
+两个文件之间没有原子事务；断电、App 被杀或系统并发修改可能留下部分写入。原位写入保留 inode，不证明系统采用配置。系统重建缓存后，恢复可能因冲突被拒绝。提示回滚失败时**不要重启**，保留备份并使用事先准备的外部恢复手段；部分写入不会通过普通恢复的冲突校验，需要人工检查，不提供强行覆盖按钮。不要同时使用其他修改工具。
+
+## 构建 IPA
+
+需要 macOS、Xcode 26+ 和 iPhoneOS SDK，无额外第三方包依赖：
+
+```sh
+swift test
+bash scripts/build-ipa.sh
+```
+
+产物：`dist/DynamicIslandFix-unsigned.ipa`。脚本先测试，再编译实际源码、组装 Payload，不会重打包旧二进制。安装前使用自己的身份签名，为自己的 Bundle ID 配置 App Group 和 profile。App 读取签名实际授予的组名，任意侧载服务不一定保留该权限。
+
+也可打开 `YumEdit.xcodeproj`，设置自己的 Team、Bundle ID 和 App Group，在手机运行。保留上游 target 名 `YumEdit`，App 显示名为 DynamicIslandFix。上游 `dist/YumEdit*.ipa` **不含新功能**。
+
+`.github/workflows/build.yml` 提供 Linux 核心测试、macOS IPA 构建，支持 push / PR / 手动触发。成功时在 Actions 下载 `DynamicIslandFix-unsigned` artifact；失败不产出 IPA，不自动发布 Release。
+
+## 自动化测试与限制
+
+`swift test` 覆盖输入格式及边界、异常 plist、布尔/浮点整数混淆、未知字段保留、解码后再次校验、备份失败禁止写入、文件冲突、部分写入后的双文件回滚、恢复逆操作及回滚失败报告。合成测试数据不是设备推荐值。
+
+单元测试不能证明目录访问可用、签名有效、重启后采用参数或双活动问题已修复。错误画布与 Subtype 可能影响触控、Face ID、状态栏、截图或启动，最坏可能需恢复设备。卸载 App 会丢失未导出的备份。
+
+## 许可
+
+保留上游 GPL-3.0 LICENSE 和版权声明；新增代码以同一许可证发布。Nugget 用于公开源码研究，未复制其画布参数映射或恢复实现。Gester 资源许可见 `YumEdit/Gester-LICENSE`。
